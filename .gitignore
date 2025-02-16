@@ -1,0 +1,49 @@
+# Игнорировать папку keys
+/terraform/keys/
+
+# Игнорировать файлы и папки Terraform
+# **/.terraform/
+# **/*.tfstate
+# **/*.tfstate.*
+# **/.terraform.lock.hcl
+# **/.terraform.tfstate.lock.info
+
+# Игнорировать файлы и папки Ansible
+**/ansible.cfg
+**/vault.yml
+**/vault_password
+# **/roles/
+# **/group_vars/
+# **/host_vars/
+# **/.retry
+
+# Игнорировать файлы и папки Docker
+**/.env
+**/secrets/
+# **/docker-data/
+# **/docker-volumes/
+
+# Игнорировать общие файлы с чувствительной информацией
+**/*.key
+**/*.pem
+**/*.crt
+**/*.secret
+**/*.priv
+**/*.pass
+**/*.vault
+**/*.log
+**/*.bak
+**/*.tmp
+**/*.swp
+**/*.swo
+
+# Игнорировать IDE-специфичные файлы
+**/.idea/
+**/.vscode/
+**/*.iml
+**/*.swp
+**/*.swo
+
+# Игнорировать системные файлы
+**/.DS_Store
+**/Thumbs.db
