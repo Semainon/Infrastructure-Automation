@@ -53,8 +53,12 @@ resource "docker_container" "front" {
       docker exec ${self.name} sh -c 'echo "${file("keys/id_rsa_terraform.pub")}" > /root/.ssh/authorized_keys'
       docker exec ${self.name} chmod 600 /root/.ssh/authorized_keys
       docker exec ${self.name} chown root:root /root/.ssh/authorized_keys
-      docker exec ${self.name} service ssh start
-      sleep 10  # Даем SSH-серверу время на запуск
+
+      # Запрещаем доступ по паролю и настраиваем SSH
+      docker exec ${self.name} sh -c 'echo "PasswordAuthentication no" >> /etc/ssh/sshd_config'
+      docker exec ${self.name} sh -c 'echo "PermitRootLogin prohibit-password" >> /etc/ssh/sshd_config'
+      docker exec ${self.name} service ssh restart
+      sleep 10  # Даем SSH-серверу время на перезапуск
     EOT
   }
 
@@ -97,8 +101,12 @@ resource "docker_container" "back" {
       docker exec ${self.name} sh -c 'echo "${file("keys/id_rsa_terraform.pub")}" > /root/.ssh/authorized_keys'
       docker exec ${self.name} chmod 600 /root/.ssh/authorized_keys
       docker exec ${self.name} chown root:root /root/.ssh/authorized_keys
-      docker exec ${self.name} service ssh start
-      sleep 10  # Даем SSH-серверу время на запуск
+
+      # Запрещаем доступ по паролю и настраиваем SSH
+      docker exec ${self.name} sh -c 'echo "PasswordAuthentication no" >> /etc/ssh/sshd_config'
+      docker exec ${self.name} sh -c 'echo "PermitRootLogin prohibit-password" >> /etc/ssh/sshd_config'
+      docker exec ${self.name} service ssh restart
+      sleep 10  # Даем SSH-серверу время на перезапуск
     EOT
   }
 
@@ -134,8 +142,12 @@ resource "docker_container" "db" {
       docker exec ${self.name} sh -c 'echo "${file("keys/id_rsa_terraform.pub")}" > /root/.ssh/authorized_keys'
       docker exec ${self.name} chmod 600 /root/.ssh/authorized_keys
       docker exec ${self.name} chown root:root /root/.ssh/authorized_keys
-      docker exec ${self.name} service ssh start
-      sleep 10  # Даем SSH-серверу время на запуск
+
+      # Запрещаем доступ по паролю и настраиваем SSH
+      docker exec ${self.name} sh -c 'echo "PasswordAuthentication no" >> /etc/ssh/sshd_config'
+      docker exec ${self.name} sh -c 'echo "PermitRootLogin prohibit-password" >> /etc/ssh/sshd_config'
+      docker exec ${self.name} service ssh restart
+      sleep 10  # Даем SSH-серверу время на перезапуск
     EOT
   }
 
