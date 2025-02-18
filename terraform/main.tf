@@ -21,10 +21,16 @@ resource "docker_network" "isolated_network" {
   name = "isolated_network"
 }
 
+# Создаем том для базы данных
+resource "docker_volume" "db_volume" {
+  name = "db_data"
+}
+
 # Создаем контейнер front с двумя интерфейсами
 resource "docker_container" "front" {
   image = "ubuntu:latest"
   name  = "front"
+  privileged = true  # Добавляем привилегии для использования tc
 
   # Настройка внешнего интерфейса
   networks_advanced {
@@ -38,26 +44,33 @@ resource "docker_container" "front" {
 
   command = ["tail", "-f", "/dev/null"]  # Удерживаем контейнер активным
 
-  # Ограничение ширины канала (это не поддерживается напрямую в Docker, но можно использовать утилиту tc для настройки)
+  # Устанавливаем SSH-сервер и настраиваем его через local-exec
+  provisioner "local-exec" {
+    command = <<EOT
+      docker exec ${self.name} apt-get update
+      docker exec ${self.name} apt-get install -y openssh-server iproute2
+      docker exec ${self.name} mkdir -p /root/.ssh
+      docker exec ${self.name} sh -c 'echo "${file("keys/id_rsa_terraform.pub")}" > /root/.ssh/authorized_keys'
+      docker exec ${self.name} chmod 600 /root/.ssh/authorized_keys
+      docker exec ${self.name} chown root:root /root/.ssh/authorized_keys
+      docker exec ${self.name} service ssh start
+      sleep 10  # Даем SSH-серверу время на запуск
+    EOT
+  }
+
+  # Настройка подключения для provisioners
+  connection {
+    type     = "ssh"
+    host     = self.network_data[0].ip_address  # Используем IP-адрес контейнера
+    user     = "root"
+    private_key = file("keys/id_rsa_terraform")
+    timeout  = "2m"  # Увеличиваем таймаут для подключения
+  }
+
+  # Ограничение ширины канала (используем утилиту tc)
   provisioner "remote-exec" {
     inline = [
-      "apt-get update",
-      "apt-get install -y iproute2",
       "tc qdisc add dev eth0 root tbf rate 110mbit burst 32kbit latency 400ms"
-    ]
-  }
-
-  # Копируем публичный ключ в контейнер
-  provisioner "file" {
-    source      = "keys/id_rsa_terraform.pub"
-    destination = "/root/.ssh/authorized_keys"
-  }
-
-  # Настраиваем права доступа к файлу authorized_keys
-  provisioner "remote-exec" {
-    inline = [
-      "chmod 600 /root/.ssh/authorized_keys",
-      "chown root:root /root/.ssh/authorized_keys"
     ]
   }
 }
@@ -73,18 +86,29 @@ resource "docker_container" "back" {
     aliases = ["back_internal"]
   }
 
-  # Копируем публичный ключ в контейнер
-  provisioner "file" {
-    source      = "keys/id_rsa_terraform.pub"
-    destination = "/root/.ssh/authorized_keys"
+  command = ["tail", "-f", "/dev/null"]  # Удерживаем контейнер активным
+
+  # Устанавливаем SSH-сервер и настраиваем его через local-exec
+  provisioner "local-exec" {
+    command = <<EOT
+      docker exec ${self.name} apt-get update
+      docker exec ${self.name} apt-get install -y openssh-server
+      docker exec ${self.name} mkdir -p /root/.ssh
+      docker exec ${self.name} sh -c 'echo "${file("keys/id_rsa_terraform.pub")}" > /root/.ssh/authorized_keys'
+      docker exec ${self.name} chmod 600 /root/.ssh/authorized_keys
+      docker exec ${self.name} chown root:root /root/.ssh/authorized_keys
+      docker exec ${self.name} service ssh start
+      sleep 10  # Даем SSH-серверу время на запуск
+    EOT
   }
 
-  # Настраиваем права доступа к файлу authorized_keys
-  provisioner "remote-exec" {
-    inline = [
-      "chmod 600 /root/.ssh/authorized_keys",
-      "chown root:root /root/.ssh/authorized_keys"
-    ]
+  # Настройка подключения для provisioners
+  connection {
+    type     = "ssh"
+    host     = self.network_data[0].ip_address  # Используем IP-адрес контейнера
+    user     = "root"
+    private_key = file("keys/id_rsa_terraform")
+    timeout  = "2m"  # Увеличиваем таймаут для подключения
   }
 }
 
@@ -99,18 +123,29 @@ resource "docker_container" "db" {
     aliases = ["db_internal"]
   }
 
-  # Копируем публичный ключ в контейнер
-  provisioner "file" {
-    source      = "keys/id_rsa_terraform.pub"
-    destination = "/root/.ssh/authorized_keys"
+  command = ["tail", "-f", "/dev/null"]  # Удерживаем контейнер активным
+
+  # Устанавливаем SSH-сервер и настраиваем его через local-exec
+  provisioner "local-exec" {
+    command = <<EOT
+      docker exec ${self.name} apt-get update
+      docker exec ${self.name} apt-get install -y openssh-server
+      docker exec ${self.name} mkdir -p /root/.ssh
+      docker exec ${self.name} sh -c 'echo "${file("keys/id_rsa_terraform.pub")}" > /root/.ssh/authorized_keys'
+      docker exec ${self.name} chmod 600 /root/.ssh/authorized_keys
+      docker exec ${self.name} chown root:root /root/.ssh/authorized_keys
+      docker exec ${self.name} service ssh start
+      sleep 10  # Даем SSH-серверу время на запуск
+    EOT
   }
 
-  # Настраиваем права доступа к файлу authorized_keys
-  provisioner "remote-exec" {
-    inline = [
-      "chmod 600 /root/.ssh/authorized_keys",
-      "chown root:root /root/.ssh/authorized_keys"
-    ]
+  # Настройка подключения для provisioners
+  connection {
+    type     = "ssh"
+    host     = self.network_data[0].ip_address  # Используем IP-адрес контейнера
+    user     = "root"
+    private_key = file("keys/id_rsa_terraform")
+    timeout  = "2m"  # Увеличиваем таймаут для подключения
   }
 
   # Используем том для хранения данных
@@ -119,9 +154,4 @@ resource "docker_container" "db" {
     target = "/var/lib/mysql"  # Путь, где будет храниться база данных
     type   = "volume"
   }
-}
-
-# Создаем том для базы данных
-resource "docker_volume" "db_volume" {
-  name = "db_data"
 }
