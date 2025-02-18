@@ -1,4 +1,4 @@
-# Игнорировать папку keys
+# Игнорировать папки keys  
 /terraform/keys/
 
 # Игнорировать файлы и папки Terraform
@@ -8,6 +8,8 @@
 # **/.terraform.lock.hcl
 # **/.terraform.tfstate.lock.info
 terraform/*.tfvars
+/terraform/terraform-provider-docker/
+terraform.tfstate.backup
 
 # Игнорировать файлы и папки Ansible
 **/ansible.cfg

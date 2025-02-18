@@ -1,20 +1,19 @@
-# Указываем провайдер Docker
+variable "docker_host" {
+  description = "Docker host address"
+  type        = string
+}
+
 terraform {
   required_providers {
     docker = {
-      source  = "kreuzwerker/docker" # https://registry.terraform.io/providers/kreuzwerker/docker/latest
-      version = "3.0.2"  
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
     }
   }
 }
 
 provider "docker" {
-  # Здесь можно указать дополнительные параметры конфигурации, если необходимо
-}
-
-variable "docker_host" {
-  description = "Docker host address"
-  type        = string
+  host = var.docker_host
 }
 
 # Создаем изолированную сеть
@@ -24,25 +23,34 @@ resource "docker_network" "isolated_network" {
 
 # Создаем контейнер front с двумя интерфейсами
 resource "docker_container" "front" {
-  image = "ubuntu:latest"  # Используем образ Ubuntu
+  image = "ubuntu:latest"
   name  = "front"
-  
+
   # Настройка внешнего интерфейса
   networks_advanced {
-    name = "bridge"  # Внешняя сеть
-    aliases = ["front_external"]
+    name    = "bridge"  # Внешняя сеть
   }
 
   # Настройка изолированного интерфейса
   networks_advanced {
-    name = docker_network.isolated_network.name
-    aliases = ["front_internal"]
+    name    = docker_network.isolated_network.name
+  }
+
+  command = ["tail", "-f", "/dev/null"]  # Удерживаем контейнер активным
+
+  # Ограничение ширины канала (это не поддерживается напрямую в Docker, но можно использовать утилиту tc для настройки)
+  provisioner "remote-exec" {
+    inline = [
+      "apt-get update",
+      "apt-get install -y iproute2",
+      "tc qdisc add dev eth0 root tbf rate 110mbit burst 32kbit latency 400ms"
+    ]
   }
 
   # Копируем публичный ключ в контейнер
   provisioner "file" {
-    source      = "keys/id_rsa_terraform.pub"  # Путь к публичному ключу
-    destination = "/root/.ssh/authorized_keys"  # Путь в контейнере
+    source      = "keys/id_rsa_terraform.pub"
+    destination = "/root/.ssh/authorized_keys"
   }
 
   # Настраиваем права доступа к файлу authorized_keys
@@ -56,19 +64,19 @@ resource "docker_container" "front" {
 
 # Создаем контейнер back с одним интерфейсом
 resource "docker_container" "back" {
-  image = "ubuntu:latest"  # Используем образ Ubuntu
+  image = "ubuntu:latest"
   name  = "back"
 
   # Настройка изолированного интерфейса
   networks_advanced {
-    name = docker_network.isolated_network.name
+    name    = docker_network.isolated_network.name
     aliases = ["back_internal"]
   }
 
   # Копируем публичный ключ в контейнер
   provisioner "file" {
-    source      = "keys/id_rsa_terraform.pub"  # Путь к публичному ключу
-    destination = "/root/.ssh/authorized_keys"  # Путь в контейнере
+    source      = "keys/id_rsa_terraform.pub"
+    destination = "/root/.ssh/authorized_keys"
   }
 
   # Настраиваем права доступа к файлу authorized_keys
@@ -82,19 +90,19 @@ resource "docker_container" "back" {
 
 # Создаем контейнер db с одним интерфейсом и дополнительным диском
 resource "docker_container" "db" {
-  image = "ubuntu:latest"  # Используем образ Ubuntu
+  image = "ubuntu:latest"
   name  = "db"
 
   # Настройка изолированного интерфейса
   networks_advanced {
-    name = docker_network.isolated_network.name
+    name    = docker_network.isolated_network.name
     aliases = ["db_internal"]
   }
 
   # Копируем публичный ключ в контейнер
   provisioner "file" {
-    source      = "keys/id_rsa_terraform.pub"  # Путь к публичному ключу
-    destination = "/root/.ssh/authorized_keys"  # Путь в контейнере
+    source      = "keys/id_rsa_terraform.pub"
+    destination = "/root/.ssh/authorized_keys"
   }
 
   # Настраиваем права доступа к файлу authorized_keys
@@ -105,13 +113,15 @@ resource "docker_container" "db" {
     ]
   }
 
-  # Добавляем дополнительный диск
-  resource "docker_volume" "db_volume" {
-    name = "db_data"
-  }
-
-  mount {
+  # Используем том для хранения данных
+  mounts {
     source = docker_volume.db_volume.name
     target = "/var/lib/mysql"  # Путь, где будет храниться база данных
+    type   = "volume"
   }
+}
+
+# Создаем том для базы данных
+resource "docker_volume" "db_volume" {
+  name = "db_data"
 }
