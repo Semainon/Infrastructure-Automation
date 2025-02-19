@@ -1,0 +1,20 @@
+all:
+  children:
+    front:
+      hosts:
+        172.17.0.2:  # Публичный IP контейнера front
+          ansible_user: root
+          ansible_ssh_private_key_file: ../../terraform/keys/id_rsa_terraform
+        172.19.0.4:  # Изолированный IP контейнера front
+          ansible_user: root
+          ansible_ssh_private_key_file: ../../terraform/keys/id_rsa_terraform
+    back:
+      hosts:
+        172.19.0.3:  # IP контейнера back
+          ansible_user: root
+          ansible_ssh_private_key_file: ../../terraform/keys/id_rsa_terraform
+    db:
+      hosts:
+        172.19.0.2:  # IP контейнера db
+          ansible_user: root
+          ansible_ssh_private_key_file: ../../terraform/keys/id_rsa_terraform
