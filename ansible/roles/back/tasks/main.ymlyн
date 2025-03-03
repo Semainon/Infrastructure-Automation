@@ -1,0 +1,103 @@
+---
+- name: Обновить список пакетов
+  apt:
+    update_cache: yes
+  tags:
+    - update_packages
+
+- name: Установить software-properties-common
+  apt:
+    name: software-properties-common
+    state: present
+  tags:
+    - install_software_properties_common
+
+- name: Добавить PPA для PHP (через shell, если apt_repository не работает)
+  shell: add-apt-repository ppa:ondrej/php -y
+  args:
+    executable: /bin/bash
+  tags:
+    - install_php
+
+- name: Обновить список пакетов после добавления PPA
+  apt:
+    update_cache: yes
+  tags:
+    - update_packages
+
+- name: Установить PHP и PHP-FPM
+  apt:
+    name:
+      - php{{ php_version }}-fpm
+      - php{{ php_version }}-mysql
+      - php{{ php_version }}-curl
+      - php{{ php_version }}-xml
+      - php{{ php_version }}-mbstring
+      - php{{ php_version }}-zip
+    state: present
+  tags:
+    - install_php
+
+- name: Скопировать конфигурацию PHP-FPM
+  template:
+    src: php-fpm.conf.j2
+    dest: /etc/php/{{ php_version }}/fpm/pool.d/www.conf
+  notify:
+    - Перезапустить PHP-FPM
+  tags:
+    - configure_php_fpm
+
+- name: Проверить права суперпользователя
+  command: whoami
+  become: yes
+  register: result
+
+- debug:
+    var: result.stdout
+
+- name: Установить nftables
+  apt:
+    name: nftables
+    state: present
+  become: yes
+  tags:
+    - firewall
+
+- name: Настроить nftables для разрешения подключения к PHP-FPM с хостов front
+  command: nft add rule ip filter input ip saddr {{ item }} tcp dport 9000 accept
+  become: yes
+  loop: 
+    - 172.17.0.2
+    - 172.19.0.2
+  tags:
+    - firewall
+
+- name: Сохранить правила nftables
+  command: nft list ruleset > /etc/nftables.conf
+  become: yes
+  tags:
+    - firewall
+
+- name: Убедиться, что nftables активен
+  systemd:
+    name: nftables
+    state: started
+    enabled: yes
+  become: yes
+  tags:
+    - firewall
+
+- name: Проверить, установлен ли PHP-FPM
+  stat:
+    path: /etc/init.d/php{{ php_version }}-fpm
+  register: php_fpm_installed
+
+- name: Убедиться, что PHP-FPM запущен и включен
+  service:
+    name: php{{ php_version }}-fpm
+    state: started
+    enabled: yes
+  when: php_fpm_installed.stat.exists
+  tags:
+    - ensure_php_fpm_running
+

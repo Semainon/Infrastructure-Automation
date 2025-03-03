@@ -1,0 +1,25 @@
+---
+- name: Apply common configuration to all hosts
+  hosts: all
+  become: yes
+  roles:
+    - common
+  tags: common  # Тег для роли common
+
+- name: Configure back host
+  hosts: back
+  become: yes
+  vars:
+    php_version: "7.4"  # Указываем нужную версию PHP
+  roles:
+    - back
+  tags: back  # Тег для роли back
+
+- name: Configure MariaDB  
+  hosts: db  
+  become: yes
+  vars_files:
+    - vault/secrets.yml  # Подключаем файл с секретами
+  roles:
+    - db  
+  tags: db  # Тег для роли db 

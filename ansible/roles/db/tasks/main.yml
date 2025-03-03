@@ -1,0 +1,94 @@
+
+---
+- name: Обновить список пакетов
+  apt:
+    update_cache: yes
+  become: true
+
+- name: Установить MariaDB
+  apt:
+    name: mariadb-server
+    state: present
+  become: true
+
+- name: Запустить MariaDB и включить автозагрузку
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+  become: true
+
+- name: Установить необходимые Python-модули для работы с MySQL/MariaDB
+  apt:
+    name:
+      - python3-pip
+      - python3-dev
+      - libmysqlclient-dev
+      - python3-pymysql
+    state: present
+  become: true
+
+- name: Изменить bind-address в конфигурации MariaDB
+  lineinfile:
+    path: /etc/mysql/mariadb.conf.d/50-server.cnf
+    regexp: '^bind-address'
+    line: 'bind-address = 0.0.0.0'
+    state: present
+  become: true
+
+- name: Перезапустить MariaDB
+  service:
+    name: mariadb
+    state: restarted
+  become: true
+
+- name: Создать файл конфигурации MySQL
+  copy:
+    dest: /root/.my.cnf
+    content: |
+      [client]
+      user=root
+      password={{ mariadb_root_password }}
+    mode: '0600'
+  become: true
+
+- name: Изменить метод аутентификации для root
+  mysql_user:
+    name: root
+    password: "{{ mariadb_root_password }}"
+    host: "{{ item }}"
+    plugin: "mysql_native_password"
+    check_implicit_admin: yes
+    state: present
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"  # Используем переменную из секретов
+  loop:
+    - localhost
+    - '172.19.0.3'
+    - '172.19.0.4'
+  become: true
+
+- name: Настроить пользователя root и предоставить все привилегии
+  command: >
+    mysql -u root -p{{ mariadb_root_password }} -e
+    "GRANT ALL PRIVILEGES ON *.* TO 'root'@'{{ item }}' WITH GRANT OPTION;"
+  loop:
+    - localhost
+    - '172.19.0.3'
+    - '172.19.0.4'
+  become: true
+
+- name: Создать базу данных для WordPress
+  mysql_db:
+    name: "{{ wp_db_name }}"  # Используем переменную из секретов
+    state: present
+  become: true
+
+- name: Создать пользователя для WordPress
+  mysql_user:
+    name: "{{ wp_db_user }}"  # Используем переменную из секретов
+    password: "{{ wp_db_password }}"  # Используем переменную из секретов
+    host: "%"
+    priv: "{{ wp_db_name }}.*:ALL"
+    state: present
+  become: true

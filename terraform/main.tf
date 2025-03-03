@@ -48,7 +48,7 @@ resource "docker_container" "front" {
   provisioner "local-exec" {
     command = <<EOT
       docker exec ${self.name} apt-get update
-      docker exec ${self.name} apt-get install -y openssh-server iproute2
+      docker exec ${self.name} apt-get install -y openssh-server iproute2 sudo python3-apt  # Устанавливаем необходимые пакеты
       docker exec ${self.name} mkdir -p /root/.ssh
       docker exec ${self.name} sh -c 'echo "${file("keys/id_rsa_terraform.pub")}" > /root/.ssh/authorized_keys'
       docker exec ${self.name} chmod 600 /root/.ssh/authorized_keys
@@ -96,7 +96,7 @@ resource "docker_container" "back" {
   provisioner "local-exec" {
     command = <<EOT
       docker exec ${self.name} apt-get update
-      docker exec ${self.name} apt-get install -y openssh-server
+      docker exec ${self.name} apt-get install -y openssh-server sudo python3-apt  # Устанавливаем необходимые пакеты
       docker exec ${self.name} mkdir -p /root/.ssh
       docker exec ${self.name} sh -c 'echo "${file("keys/id_rsa_terraform.pub")}" > /root/.ssh/authorized_keys'
       docker exec ${self.name} chmod 600 /root/.ssh/authorized_keys
@@ -137,7 +137,7 @@ resource "docker_container" "db" {
   provisioner "local-exec" {
     command = <<EOT
       docker exec ${self.name} apt-get update
-      docker exec ${self.name} apt-get install -y openssh-server
+      docker exec ${self.name} apt-get install -y openssh-server sudo python3-apt  # Устанавливаем необходимые пакеты
       docker exec ${self.name} mkdir -p /root/.ssh
       docker exec ${self.name} sh -c 'echo "${file("keys/id_rsa_terraform.pub")}" > /root/.ssh/authorized_keys'
       docker exec ${self.name} chmod 600 /root/.ssh/authorized_keys

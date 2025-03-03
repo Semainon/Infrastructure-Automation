@@ -1,0 +1,70 @@
+
+---
+- name: Собрать факты Ansible
+  setup:
+  tags: gather_facts
+
+- name: Kill any running apt or dpkg processes
+  shell: |
+    pkill -f apt-get || true
+    pkill -f apt || true
+    pkill -f dpkg || true
+  ignore_errors: yes
+  tags: kill_apt_processes
+
+- name: Очистить кеш apt и обновить список пакетов
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags: update_apt_cache
+
+- name: Install common packages
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - apt-utils
+    - chrony
+    - mc
+    - curl
+    - htop
+    - atop
+    - language-pack-ru
+    - locales
+    - mariadb-client  # Установка клиента MariaDB 
+  tags: install_common_packages
+
+- name: Remove unwanted packages
+  apt:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - apparmor
+    - cockpit
+  tags: remove_unwanted_packages
+
+- name: Ensure chrony is running and enabled
+  service:
+    name: chrony
+    state: started
+    enabled: yes
+  tags: configure_chrony
+
+- name: Установить русскую локаль
+  locale_gen:
+    name: "ru_RU.UTF-8"
+    state: present
+  tags: set_locale
+
+- name: Настроить локаль по умолчанию
+  command: update-locale LANG=ru_RU.UTF-8
+#  when: ansible_os_family == "Debian"
+  tags: configure_locale
+
+- name: Добавить пользователя ansible в группу root
+  user:
+    name: ansible
+    groups: root
+    append: yes
+  tags: root

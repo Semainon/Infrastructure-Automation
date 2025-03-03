@@ -1,0 +1,5 @@
+# roles/back/handlers/main.yml
+- name: Перезапустить PHP-FPM
+  service:
+    name: php{{ php_version }}-fpm
+    state: restarted
